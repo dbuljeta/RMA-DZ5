@@ -13,7 +13,9 @@
         android:id="@+id/tvLocationDescription"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="10dp"/>
+        android:layout_marginBottom="@dimen/tvMargins"
+        android:layout_marginLeft="@dimen/tvMargins"
+        android:layout_marginRight="@dimen/tvMargins"/>
     <fragment
         android:id="@+id/fGoogleMap"
         android:name="com.google.android.gms.maps.MapFragment"

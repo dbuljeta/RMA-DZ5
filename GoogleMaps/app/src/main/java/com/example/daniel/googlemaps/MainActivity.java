@@ -39,11 +39,13 @@ import android.widget.Toast;
 
 import com.google.android.gms.identity.intents.Address;
 
+import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.UiSettings;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
@@ -101,7 +103,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void startTracking() {
-        Log.d("Tracking", "Tracking started.");
         Criteria criteria = new Criteria();
         criteria.setAccuracy(Criteria.ACCURACY_FINE);
         String locationProvider = this.mLocationManager.getBestProvider(criteria, true);
@@ -117,12 +118,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void stopTracking() {
-        Log.d("Tracking", "Tracking stopped.");
+        Log.e("Tracking", "Tracking stopped.");
         this.mLocationManager.removeUpdates(this.mLocationListener);
     }
 
     private void setUpUi() {
-        mplayer = MediaPlayer.create(this, R.raw.shoot);
+        mplayer = MediaPlayer.create(this, R.raw.pindrop);
         mplayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
             @Override
             public void onCompletion(MediaPlayer mp) {
@@ -133,16 +134,17 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         this.mMapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.fGoogleMap);
         this.mMapFragment.getMapAsync(this);
         this.tvLocationDisplay = (TextView) this.findViewById(R.id.tvLocationDescription);
-        Log.e("GoingintoMapClick","Ok");
-        this.mapClickListener= new GoogleMap.OnMapClickListener() {
+        Log.e("GoingintoMapClick", "Ok");
+        this.mapClickListener = new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(LatLng latLng) {
-                Log.e("MapClick","Ok");
+                Log.e("MapClick", "Ok");
                 MarkerOptions newMarkerOptions = new MarkerOptions();
                 newMarkerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
                 newMarkerOptions.title("I would go!");
                 newMarkerOptions.position(latLng);
                 mGoogleMap.addMarker(newMarkerOptions);
+                mplayer.start();
             }
         };
     }
@@ -163,6 +165,122 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
+    private void updateLocationText(Location location) {
+        LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+        mGoogleMap.animateCamera(CameraUpdateFactory.newLatLng(currentLocation));
+        CameraPosition cameraPosition = new CameraPosition.Builder()
+                .target(currentLocation)
+                .zoom(50)
+                .build();
+        mGoogleMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+        mGoogleMap.moveCamera(CameraUpdateFactory.newLatLng(currentLocation));
+        String message =
+                "Lat: " + location.getLatitude() + "\nLon:" + location.getLongitude() + "\n";
+        tvLocationDisplay.setText(message);
+        MarkerOptions newMarkerOptions = new MarkerOptions();
+        newMarkerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE));
+        newMarkerOptions.position(currentLocation)
+                .title("Daniel Is Here").snippet("Finally I know where am i :)");
+        mGoogleMap.addMarker(newMarkerOptions);
+
+        if (Geocoder.isPresent()) {
+            Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+            try {
+                List<android.location.Address> nearByAddresses = geocoder.getFromLocation(
+                        location.getLatitude(), location.getLongitude(), 1);
+                if (nearByAddresses.size() > 0) {
+                    StringBuilder stringBuilder = new StringBuilder();
+                    android.location.Address nearestAddress = nearByAddresses.get(0);
+                    stringBuilder.append(nearestAddress.getAddressLine(0)).append(",")
+                            .append(nearestAddress.getLocality()).append(",")
+                            .append(nearestAddress.getCountryName());
+                    tvLocationDisplay.append(stringBuilder.toString());
+                    NameLocation = nearestAddress.getLocality() + "," + nearestAddress.getAddressLine(0);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        bTakePicture.setOnClickListener(this);
+    }
+
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        Log.e("onactivityresult", "prošlo");
+        if (resultCode == Activity.RESULT_OK) {
+//            Toast.makeText(this, imageUri + NameLocation + ".jpg", Toast.LENGTH_LONG).show();
+            Intent openGallery = new Intent();
+            openGallery.setAction(android.content.Intent.ACTION_VIEW);
+            openGallery.setDataAndType(imageUri, "image/*");
+            PendingIntent pIntent = PendingIntent.getActivity(this, 0, openGallery, 0);
+            Log.e("pendingintent", "prošlo");
+
+
+            Notification newPicture = new NotificationCompat.Builder(this)
+                    .setContentTitle("New picture taken")
+                    .setContentText(imageUri + NameLocation + ".jpg")
+                    .setLights(Color.BLUE, 2000, 1000)
+                    .setVibrate(new long[]{1000, 1000, 1000, 1000, 1000})
+                    .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentIntent(pIntent).build();
+            Log.e("notification", "prošlo");
+            newPicture.flags |= Notification.FLAG_AUTO_CANCEL;
+
+            NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            notificationManager.notify(0, newPicture);
+        }
+
+
+    }
+
+    @Override
+    public void onClick(View v) {
+
+        cameraIntent.setAction(MediaStore.ACTION_IMAGE_CAPTURE);
+        File photo = new File(Environment.getExternalStorageDirectory(), NameLocation + ".jpg");
+        cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(photo));
+        imageUri = Uri.fromFile(photo);
+
+        if (canBeCalled(cameraIntent)) {
+            startActivityForResult(cameraIntent, 1);
+        } else {
+            Log.e("TAG", "No activity can handle the request.");
+        }
+
+    }
+
+    private boolean canBeCalled(Intent implicitIntent) {
+        PackageManager packageManager = this.getPackageManager();
+        if (implicitIntent.resolveActivity(packageManager) != null) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private class SimpleLocationListener implements LocationListener {
+
+
+        @Override
+        public void onLocationChanged(Location location) {
+            updateLocationText(location);
+        }
+
+        @Override
+        public void onStatusChanged(String provider, int status, Bundle extras) {
+        }
+
+        @Override
+        public void onProviderEnabled(String provider) {
+        }
+
+        @Override
+        public void onProviderDisabled(String provider) {
+        }
+    }
 
     private boolean hasLocationPermission() {
         String LocationPermission = Manifest.permission.ACCESS_FINE_LOCATION;
@@ -227,112 +345,5 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     }
                 })
                 .show();
-    }
-
-    private void updateLocationText(Location location) {
-        String message =
-                "Lat: " + location.getLatitude() + "\nLon:" + location.getLongitude() + "\n";
-        tvLocationDisplay.setText(message);
-        MarkerOptions newMarkerOptions = new MarkerOptions();
-        newMarkerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE));
-        newMarkerOptions.position(new LatLng(location.getLatitude(), location.getLongitude()));
-        mGoogleMap.addMarker(newMarkerOptions);
-
-        if (Geocoder.isPresent()) {
-            Geocoder geocoder = new Geocoder(this, Locale.getDefault());
-            try {
-                List<android.location.Address> nearByAddresses = geocoder.getFromLocation(
-                        location.getLatitude(), location.getLongitude(), 1);
-                if (nearByAddresses.size() > 0) {
-                    StringBuilder stringBuilder = new StringBuilder();
-                    android.location.Address nearestAddress = nearByAddresses.get(0);
-                    stringBuilder.append(nearestAddress.getAddressLine(0)).append(",")
-                            .append(nearestAddress.getLocality()).append(",")
-                            .append(nearestAddress.getCountryName());
-                    tvLocationDisplay.append(stringBuilder.toString());
-                    NameLocation = nearestAddress.getLocality() + ","+ nearestAddress.getAddressLine(0);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        mplayer.start();
-        bTakePicture.setOnClickListener(this);
-    }
-
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        Log.e("onactivityresult", "prošlo");
-        if (resultCode == Activity.RESULT_OK) {
-//            Toast.makeText(this, imageUri + NameLocation + ".jpg", Toast.LENGTH_LONG).show();
-            Intent openGallery = new Intent();
-            openGallery.setAction(android.content.Intent.ACTION_VIEW);
-            openGallery.setDataAndType(imageUri, "image/*");
-            PendingIntent pIntent = PendingIntent.getActivity(this, 0, openGallery, 0);
-            Log.e("pendingintent", "prošlo");
-
-
-            Notification newPicture = new NotificationCompat.Builder(this)
-                    .setContentTitle("New picture taken")
-                    .setContentText(imageUri + NameLocation + ".jpg")
-                    .setLights(Color.BLUE, 2000, 1000)
-                    .setVibrate(new long[]{1000, 1000, 1000, 1000, 1000})
-                    .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
-                    .setSmallIcon(R.mipmap.ic_launcher)
-                    .setContentIntent(pIntent).build();
-            Log.e("notification", "prošlo");
-            newPicture.flags |= Notification.FLAG_AUTO_CANCEL;
-
-            NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-            notificationManager.notify(0, newPicture);
-        }
-
-
-    }
-
-    @Override
-    public void onClick(View v) {
-
-        cameraIntent.setAction(MediaStore.ACTION_IMAGE_CAPTURE);
-        File photo = new File(Environment.getExternalStorageDirectory(), NameLocation + ".jpg");
-        cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(photo));
-        imageUri = Uri.fromFile(photo);
-
-        if (canBeCalled(cameraIntent)) {
-            startActivityForResult(cameraIntent, 1);
-        } else {
-            Log.e("TAG", "No activity can handle the request.");
-        }
-
-    }
-
-    private boolean canBeCalled(Intent implicitIntent) {
-        PackageManager packageManager = this.getPackageManager();
-        if (implicitIntent.resolveActivity(packageManager) != null) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    private class SimpleLocationListener implements LocationListener {
-        @Override
-        public void onLocationChanged(Location location) {
-            updateLocationText(location);
-        }
-
-        @Override
-        public void onStatusChanged(String provider, int status, Bundle extras) {
-        }
-
-        @Override
-        public void onProviderEnabled(String provider) {
-        }
-
-        @Override
-        public void onProviderDisabled(String provider) {
-        }
     }
 }
