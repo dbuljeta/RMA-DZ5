@@ -56,7 +56,7 @@ import java.util.Locale;
 
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, View.OnClickListener {
-    private static final int REQUEST_LOCATION_PERMISSION = 10;
+    private static final int REQUEST_LOCATION_PERMISSION = 50;
     TextView tvLocationDisplay;
     LocationListener mLocationListener;
     LocationManager mLocationManager;
@@ -170,10 +170,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mGoogleMap.animateCamera(CameraUpdateFactory.newLatLng(currentLocation));
         CameraPosition cameraPosition = new CameraPosition.Builder()
                 .target(currentLocation)
-                .zoom(50)
                 .build();
         mGoogleMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
         mGoogleMap.moveCamera(CameraUpdateFactory.newLatLng(currentLocation));
+        mGoogleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLocation,5));
         String message =
                 "Lat: " + location.getLatitude() + "\nLon:" + location.getLongitude() + "\n";
         tvLocationDisplay.setText(message);
@@ -191,11 +191,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (nearByAddresses.size() > 0) {
                     StringBuilder stringBuilder = new StringBuilder();
                     android.location.Address nearestAddress = nearByAddresses.get(0);
-                    stringBuilder.append(nearestAddress.getAddressLine(0)).append(",")
-                            .append(nearestAddress.getLocality()).append(",")
+                    stringBuilder.append(nearestAddress.getAddressLine(0)).append(", ")
+                            .append(nearestAddress.getLocality()).append(", ")
                             .append(nearestAddress.getCountryName());
                     tvLocationDisplay.append(stringBuilder.toString());
-                    NameLocation = nearestAddress.getLocality() + "," + nearestAddress.getAddressLine(0);
+                    NameLocation = nearestAddress.getLocality() + ", "+ nearestAddress.getAddressLine(0);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
